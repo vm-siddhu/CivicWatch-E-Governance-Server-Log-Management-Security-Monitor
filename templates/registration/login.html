@@ -1,50 +1,46 @@
 {% extends "base.html" %}
-{% block title %}Sign in{% endblock %}
-{% block heading %}Secure sign in{% endblock %}
+{% block title %}Sign In · CivicWatch{% endblock %}
+{% block heading %}Sign In{% endblock %}
 
 {% block content %}
 <div class="login-wrap">
   <div class="login-card">
-    <span class="eyebrow">AUTHORIZED PERSONNEL</span>
-    <h1>Welcome back</h1>
-    <p class="muted">Sign in to access your e-governance monitoring workspace.</p>
+    <span class="eyebrow">AUTHENTICATION GATEWAY</span>
+    <h1>Welcome to CivicWatch</h1>
+    <p class="muted">Sign in to access your server log monitoring dashboard.</p>
 
     <form method="post" class="mt-4">
       {% csrf_token %}
       {% if form.errors %}
-        <div class="alert alert-danger" style="font-size: 12px;">
-          Username or password is incorrect. Please check your credentials and try again.
+        <div class="alert alert-danger py-2" style="font-size: 12px;">
+          Username or password is incorrect. Please try again.
         </div>
       {% endif %}
 
       <div class="mb-3">
-        <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">Username</label>
+        <label class="form-label" style="font-size: 12px; font-weight: 600;">Username</label>
         {{ form.username }}
       </div>
 
       <div class="mb-3">
-        <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">Password</label>
+        <label class="form-label" style="font-size: 12px; font-weight: 600;">Password</label>
         {{ form.password }}
       </div>
 
       <input type="hidden" name="next" value="{{ next }}">
 
-      <button type="submit" class="btn-primary w-100 mt-3" style="padding: 12px; font-size: 13px;">
-        Sign in securely <span>→</span>
+      <button type="submit" class="btn-primary w-100 mt-2" style="padding: 11px; font-size: 13px;">
+        Sign In <span>→</span>
       </button>
 
       <div class="text-center mt-3" style="font-size: 12px;">
-        <span class="text-muted">Don't have an officer account?</span>
+        <span class="text-muted">Don't have an account yet?</span>
         <a href="{% url 'register' %}" style="color: var(--purple); font-weight: 600; text-decoration: none; margin-left: 5px;">Register here</a>
       </div>
     </form>
 
-    <div class="security-note mt-4">
-      <div class="d-flex align-items-center mb-1">
-        <span style="margin-right: 6px;">🔒</span>
-        <strong>E-Governance Access Notice</strong>
-      </div>
-      <div>Access is restricted to authorized personnel. New officers may register above; Super Administrators can also be initialized via terminal (<code>python manage.py createsuperuser</code>).</div>
+    <div class="security-note mt-3 p-3 rounded" style="background: #f8fafc; font-size: 11px;">
+      💡 <strong>Student Demo Tip:</strong> You can register a new account as an <em>Administrator</em> or <em>Regular User</em>, or use your created superuser.
     </div>
   </div>
 </div>

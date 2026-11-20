@@ -2,15 +2,18 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("", views.home, name="home"),
-    path("dashboard/", views.dashboard, name="dashboard"),
+    path("", views.dashboard, name="dashboard"),
     path("logs/", views.log_list, name="logs"),
-    path("logs/export/", views.export_logs, name="export-logs"),
-    path("logs/manual/", views.manual_log, name="manual-log"),
+    path("logs/add/", views.add_log, name="add-log"),
     path("logs/<uuid:log_id>/", views.log_detail, name="log-detail"),
-    path("logs/<uuid:log_id>/correct/", views.log_correct, name="log-correct"),
-    path("alerts/", views.alert_list, name="alerts"),
-    path("alerts/<int:alert_id>/update/", views.alert_update, name="alert-update"),
-    path("audit/", views.audit_report, name="audit-report"),
-    path("simulate-log/", views.simulate_log, name="simulate-log"),
+    path("logs/<uuid:log_id>/delete/", views.delete_log, name="delete-log"),
+    path("logs/export/", views.export_logs, name="export-logs"),
+    path("notifications/", views.notifications_view, name="notifications"),
+    path("notifications/<int:alert_id>/resolve/", views.resolve_notification, name="resolve-notification"),
+    path("settings/", views.settings_view, name="settings"),
+    path("settings/seed/", views.seed_logs_view, name="seed-logs"),
+    path("settings/clear/", views.clear_logs_view, name="clear-logs"),
+    # Compatibility aliases
+    path("alerts/", views.notifications_view, name="alerts"),
+    path("alerts/<int:alert_id>/update/", views.resolve_notification, name="alert-update"),
 ]

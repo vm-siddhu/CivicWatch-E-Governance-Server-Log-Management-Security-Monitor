@@ -1,1 +1,102 @@
-{% extends "base.html" %}{% block title %}Log detail{% endblock %}{% block heading %}Log detail{% endblock %}{% block content %}<a class="back-link" href="{% url 'logs' %}">← Back to logs</a><div class="page-intro"><div><span class="eyebrow">EVENT INSPECTION · {{ entry.id }}</span><h1>{{ entry.get_category_display }}</h1><p>{{ entry.timestamp|date:"F j, Y · H:i:s T" }}</p></div><span class="severity {{ entry.severity|lower }} big">{{ entry.severity }}</span></div><div class="detail-grid"><article class="panel detail-main"><h2>Event message</h2><pre class="message-block">{{ entry.message }}</pre><h2 class="mt-4">Classification</h2><div class="metadata"><div><small>Predicted category</small><strong>{{ entry.get_original_category_display }}</strong></div><div><small>Current category</small><strong>{{ entry.get_category_display }}</strong></div><div><small>Severity</small><strong>{{ entry.severity }}</strong></div><div><small>Reason</small><strong>{{ entry.classification_reason }}</strong></div><div><small>Confidence</small><strong>{% if entry.confidence %}{{ entry.confidence|floatformat:0 }}%{% else %}Not available{% endif %}</strong></div>{% if entry.corrected_by %}<div><small>Corrected by</small><strong>{{ entry.corrected_by }} · {{ entry.corrected_at }}</strong></div>{% endif %}</div></article><article class="panel"><h2>Request details</h2><div class="metadata vertical"><div><small>Source application</small><strong>{{ entry.source_application }}</strong></div><div><small>Event type</small><strong>{{ entry.event_type|default:"—" }}</strong></div><div><small>HTTP method and status</small><strong>{{ entry.http_method|default:"—" }} {{ entry.status_code|default:"" }}</strong></div><div><small>Request URL</small><strong class="break">{{ entry.request_url|default:"—" }}</strong></div><div><small>User ID</small><strong>{{ entry.user_id|default:"—" }}</strong></div><div><small>Client IP</small><strong>{{ entry.ip_address|default:"—" }}</strong></div><div><small>Server IP</small><strong>{{ entry.server_ip|default:"—" }}</strong></div></div></article></div>{% if user.is_superuser or user.groups.all %}<article class="panel correction-panel"><h2>Correct classification</h2><form method="post" action="{% url 'log-correct' entry.id %}" class="filters">{% csrf_token %}<select class="form-select" name="category">{% for v,label in categories %}<option value="{{ v }}" {% if entry.category == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><select class="form-select" name="severity">{% for v,label in severities %}<option value="{{ v }}" {% if entry.severity == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="btn-primary">Save correction</button></form></article>{% endif %}{% endblock %}
+{% extends "base.html" %}
+{% block title %}Log Detail · CivicWatch{% endblock %}
+{% block heading %}Log Entry Details{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a class="back-link d-inline-block mb-2" href="{% url 'logs' %}">← Back to All Logs</a>
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h1 style="font: 700 22px Manrope; margin: 0 0 4px; color: #1c2440;">Log Event Inspection</h1>
+      <p class="text-muted mb-0" style="font-size: 13px;">Recorded on {{ entry.timestamp|date:"F j, Y · H:i:s T" }}</p>
+    </div>
+    <div>
+      {% if entry.severity == 'CRITICAL' %}
+        <span class="badge bg-danger text-white fs-6 px-3 py-2">CRITICAL</span>
+      {% elif entry.severity == 'ERROR' %}
+        <span class="badge bg-danger-subtle text-danger border border-danger fs-6 px-3 py-2">ERROR</span>
+      {% elif entry.severity == 'WARNING' %}
+        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning fs-6 px-3 py-2">WARNING</span>
+      {% else %}
+        <span class="badge bg-success-subtle text-success border border-success fs-6 px-3 py-2">INFO</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Left Column: Message and Classification -->
+  <div class="col-lg-7">
+    <div class="panel p-4 mb-3">
+      <h2 style="font: 700 15px Manrope; margin-bottom: 12px;">Log Message (Sanitized)</h2>
+      <pre class="message-block mb-0">{{ entry.message }}</pre>
+    </div>
+
+    <div class="panel p-4">
+      <h2 style="font: 700 15px Manrope; margin-bottom: 14px;">Automated Classification Engine</h2>
+      <div class="row g-3" style="font-size: 12px;">
+        <div class="col-6">
+          <span class="text-muted d-block mb-1">Classified Category:</span>
+          <strong>{{ entry.get_category_display }}</strong>
+        </div>
+        <div class="col-6">
+          <span class="text-muted d-block mb-1">Assigned Severity:</span>
+          <strong>{{ entry.severity }}</strong>
+        </div>
+        <div class="col-6">
+          <span class="text-muted d-block mb-1">Classification Reason:</span>
+          <span class="text-dark">{{ entry.classification_reason|default:"Standard rule match" }}</span>
+        </div>
+        <div class="col-6">
+          <span class="text-muted d-block mb-1">Confidence Score:</span>
+          <strong style="color: var(--purple);">
+            {% if entry.confidence %}{{ entry.confidence|floatformat:0 }}%{% else %}Standard Rule{% endif %}
+          </strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Request & Metadata -->
+  <div class="col-lg-5">
+    <div class="panel p-4 mb-3">
+      <h2 style="font: 700 15px Manrope; margin-bottom: 14px;">Event Metadata</h2>
+      <div class="d-flex flex-column gap-3" style="font-size: 12px;">
+        <div>
+          <span class="text-muted d-block">Originating Application:</span>
+          <strong style="font-size: 13px; color: #202846;">{{ entry.source_application }}</strong>
+        </div>
+        <div>
+          <span class="text-muted d-block">Event Type:</span>
+          <span>{{ entry.event_type|default:"http_request" }}</span>
+        </div>
+        <div>
+          <span class="text-muted d-block">Client IP Address:</span>
+          <code>{{ entry.ip_address|default:"Not recorded" }}</code>
+        </div>
+        <div>
+          <span class="text-muted d-block">HTTP Status Code:</span>
+          <span>{{ entry.status_code|default:"—" }}</span>
+        </div>
+        <div>
+          <span class="text-muted d-block">Internal UUID:</span>
+          <code style="font-size: 10px;">{{ entry.id }}</code>
+        </div>
+      </div>
+    </div>
+
+    {% if is_admin %}
+    <div class="panel p-3 border-danger-subtle bg-danger-subtle bg-opacity-10">
+      <h3 style="font: 700 13px Manrope; color: #b91c1c; margin-bottom: 6px;">Admin Actions</h3>
+      <p style="font-size: 11px; color: #7f1d1d; margin-bottom: 12px;">Permanently remove this log entry from the database.</p>
+      <form method="post" action="{% url 'delete-log' entry.id %}" onsubmit="return confirm('Are you sure you want to delete this log?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size: 11px;">
+          Delete This Log Entry
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

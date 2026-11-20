@@ -1,1 +1,133 @@
-{% extends "base.html" %}{% block title %}Server logs{% endblock %}{% block heading %}Server logs{% endblock %}{% block content %}<div class="page-intro"><div><span class="eyebrow">EVENT EXPLORER</span><h1>Server logs</h1><p>Search, filter and investigate events across your applications.</p></div><a class="btn-outline" href="{% url 'export-logs' %}?{{ request.GET.urlencode }}">↓ Export CSV</a></div><div class="panel filter-panel"><form method="get" class="filters"><input class="form-control search-input" name="q" placeholder="Search messages or URLs…" value="{{ request.GET.q }}"><select class="form-select" name="severity"><option value="">All severities</option>{% for v,label in severities %}<option value="{{ v }}" {% if request.GET.severity == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><select class="form-select" name="category"><option value="">All categories</option>{% for v,label in categories %}<option value="{{ v }}" {% if request.GET.category == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><input class="form-control" name="app" placeholder="Application" value="{{ request.GET.app }}"><input class="form-control" name="ip" placeholder="IP address" value="{{ request.GET.ip }}"><input class="form-control" type="date" name="from" value="{{ request.GET.from }}"><input class="form-control" type="date" name="to" value="{{ request.GET.to }}"><button class="btn-primary">Apply filters</button><a class="btn-clear" href="{% url 'logs' %}">Clear</a></form></div><div class="panel table-panel"><div class="panel-head"><div><h2>Event records</h2><p>{{ page.paginator.count }} matching records</p></div><form method="post" action="{% url 'manual-log' %}" class="d-flex gap-2">{% csrf_token %}<input class="form-control" name="message" placeholder="Add manual event…" required><input type="hidden" name="source_application" value="admin-console"><button class="btn-outline" type="submit">＋ Add log</button></form></div><div class="table-responsive"><table class="table data-table"><thead><tr><th>TIME</th><th>APPLICATION</th><th>EVENT / MESSAGE</th><th>CATEGORY</th><th>SEVERITY</th><th>STATUS</th></tr></thead><tbody>{% for e in page %}<tr><td class="nowrap">{{ e.timestamp|date:"Y-m-d H:i:s" }}</td><td>{{ e.source_application }}</td><td><a class="event-link" href="{% url 'log-detail' e.id %}">{{ e.message|truncatechars:90 }}</a></td><td>{{ e.get_category_display }}</td><td><span class="severity {{ e.severity|lower }}">{{ e.severity }}</span></td><td>{{ e.status_code|default:"—" }}</td></tr>{% empty %}<tr><td colspan="6" class="empty">No matching log records.</td></tr>{% endfor %}</tbody></table></div><div class="pagination-row">{% if page.has_previous %}<a href="?{{ request.GET.urlencode }}&page={{ page.previous_page_number }}">← Previous</a>{% else %}<span></span>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?{{ request.GET.urlencode }}&page={{ page.next_page_number }}">Next →</a>{% endif %}</div></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}All Logs · CivicWatch{% endblock %}
+{% block heading %}All Server Logs{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 style="font: 700 22px Manrope; margin: 0 0 4px; color: #1c2440;">Server Logs Explorer</h1>
+    <p class="text-muted mb-0" style="font-size: 13px;">Browse, filter, and inspect recorded events across your applications.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'add-log' %}" class="btn-primary" style="font-size: 12px; padding: 8px 14px; text-decoration: none;">＋ Add New Log</a>
+    <a href="{% url 'export-logs' %}?{{ request.GET.urlencode }}" class="btn-outline" style="font-size: 12px; padding: 8px 14px; text-decoration: none;">↓ Export CSV</a>
+  </div>
+</div>
+
+<!-- Search and Filter Panel -->
+<div class="panel filter-panel mb-3">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col-md-4">
+      <input type="text" class="form-control" name="q" placeholder="Search message, app or IP..." value="{{ q }}">
+    </div>
+    
+    <div class="col-md-2">
+      <select class="form-select" name="level">
+        <option value="">All Log Levels</option>
+        {% for code, label in severities %}
+          <option value="{{ code }}" {% if selected_level == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <input type="date" class="form-control" name="from" value="{{ date_from }}" title="From Date">
+    </div>
+
+    <div class="col-md-2">
+      <input type="date" class="form-control" name="to" value="{{ date_to }}" title="To Date">
+    </div>
+
+    <div class="col-md-2 d-flex gap-1">
+      <button type="submit" class="btn btn-primary btn-sm flex-fill py-2" style="font-size: 11px;">Filter</button>
+      <a href="{% url 'logs' %}" class="btn btn-outline-secondary btn-sm flex-fill py-2" style="font-size: 11px;">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Table Panel -->
+<div class="panel table-panel">
+  <div class="panel-head d-flex justify-content-between align-items-center">
+    <div>
+      <h2>Recorded Logs</h2>
+      <p>{{ page.paginator.count }} total events found</p>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table data-table mb-0">
+      <thead>
+        <tr>
+          <th>TIME</th>
+          <th>APPLICATION</th>
+          <th>LEVEL</th>
+          <th>CATEGORY</th>
+          <th>LOG MESSAGE</th>
+          <th>IP ADDRESS</th>
+          <th>ACTION</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in page %}
+        <tr {% if log.severity == 'CRITICAL' %}style="background: #fff8f8;"{% elif log.severity == 'ERROR' %}style="background: #fffafa;"{% endif %}>
+          <td class="nowrap" style="font-size: 11px;">{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+          <td><strong style="color: #2e384d;">{{ log.source_application }}</strong></td>
+          <td>
+            {% if log.severity == 'CRITICAL' %}
+              <span class="badge bg-danger text-white">CRITICAL</span>
+            {% elif log.severity == 'ERROR' %}
+              <span class="badge bg-danger-subtle text-danger border border-danger">ERROR</span>
+            {% elif log.severity == 'WARNING' %}
+              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">WARNING</span>
+            {% else %}
+              <span class="badge bg-success-subtle text-success border border-success">INFO</span>
+            {% endif %}
+          </td>
+          <td><small class="text-muted">{{ log.get_category_display }}</small></td>
+          <td>
+            <a href="{% url 'log-detail' log.id %}" class="event-link" title="{{ log.message }}">
+              {{ log.message|truncatechars:75 }}
+            </a>
+          </td>
+          <td><small class="text-muted">{{ log.ip_address|default:"—" }}</small></td>
+          <td>
+            <div class="d-flex gap-1 align-items-center">
+              <a href="{% url 'log-detail' log.id %}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 10px;">Inspect</a>
+              {% if is_admin %}
+                <form method="post" action="{% url 'delete-log' log.id %}" onsubmit="return confirm('Delete this log entry?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size: 10px;">Delete</button>
+                </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="empty">No matching log records found. Try adjusting your search or filters.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page.paginator.num_pages > 1 %}
+  <div class="pagination-row">
+    <div>
+      {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if date_from %}&from={{ date_from }}{% endif %}{% if date_to %}&to={{ date_to }}{% endif %}">← Previous</a>
+      {% endif %}
+    </div>
+
+    <div>Page {{ page.number }} of {{ page.paginator.num_pages }}</div>
+
+    <div>
+      {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if date_from %}&from={{ date_from }}{% endif %}{% if date_to %}&to={{ date_to }}{% endif %}">Next →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

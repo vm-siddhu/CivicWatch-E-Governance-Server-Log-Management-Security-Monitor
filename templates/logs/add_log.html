@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Add Log · CivicWatch{% endblock %}
+{% block heading %}Add New Server Log{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="mb-3">
+      <a href="{% url 'logs' %}" class="back-link mb-2 d-inline-block">← Back to All Logs</a>
+      <h1 style="font: 700 22px Manrope; margin: 0 0 4px; color: #1c2440;">Add New Server Log Entry</h1>
+      <p class="text-muted mb-0" style="font-size: 13px;">Submit a new application or server event. The system will store and automatically classify it.</p>
+    </div>
+
+    <div class="panel p-4">
+      <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2" style="font-size: 12px;">
+            {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="mb-3">
+          <label class="form-label" style="font-size: 12px; font-weight: 600;">{{ form.source_application.label }}</label>
+          {{ form.source_application }}
+        </div>
+
+        <div class="mb-3" id="customAppGroup" style="display: none;">
+          <label class="form-label" style="font-size: 12px; font-weight: 600;">{{ form.custom_application.label }}</label>
+          {{ form.custom_application }}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" style="font-size: 12px; font-weight: 600;">{{ form.message.label }}</label>
+          {{ form.message }}
+          {% if form.message.help_text %}
+            <small class="text-muted d-block mt-1" style="font-size: 11px;">{{ form.message.help_text }}</small>
+          {% endif %}
+          {% if form.message.errors %}
+            <div class="text-danger small mt-1">{{ form.message.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label" style="font-size: 12px; font-weight: 600;">{{ form.severity.label }}</label>
+            {{ form.severity }}
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label" style="font-size: 12px; font-weight: 600;">{{ form.status_code.label }}</label>
+            {{ form.status_code }}
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label" style="font-size: 12px; font-weight: 600;">{{ form.ip_address.label }}</label>
+            {{ form.ip_address }}
+          </div>
+        </div>
+
+        <div class="p-3 mb-4 rounded" style="background: #f7f9fd; border: 1px solid #e2e7f3; font-size: 12px;">
+          <strong style="color: #4338ca;">⚡ Content-Based Classification Engine:</strong>
+          <span class="text-muted d-block mt-1">
+            When set to <em>Auto-classify</em>, the engine analyzes your message content for failure patterns (e.g., <code>database deadlock</code>, <code>timeout</code>, <code>login failed</code>) to automatically assign <strong>INFO</strong>, <strong>WARNING</strong>, or <strong>ERROR</strong>. Critical errors automatically generate an in-app notification.
+          </span>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn-primary" style="padding: 10px 22px; font-size: 13px;">
+            Record and Classify Log <span>→</span>
+          </button>
+          <a href="{% url 'logs' %}" class="btn-outline" style="padding: 10px 18px; font-size: 13px;">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const appSelect = document.querySelector('select[name="source_application"]');
+  const customGroup = document.getElementById('customAppGroup');
+  if (appSelect && customGroup) {
+    function toggleCustom() {
+      customGroup.style.display = appSelect.value === 'Other' ? 'block' : 'none';
+    }
+    appSelect.addEventListener('change', toggleCustom);
+    toggleCustom();
+  }
+});
+</script>
+{% endblock %}

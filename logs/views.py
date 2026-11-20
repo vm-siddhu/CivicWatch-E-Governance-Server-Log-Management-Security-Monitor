@@ -1,200 +1,319 @@
 import csv
+import sys
 from datetime import timedelta
+import django
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from .forms import OfficerRegistrationForm
-from .models import Alert, AuditEvent, LogEntry
-from .permissions import monitor_required, system_admin_required
+
+from .forms import LogEntryForm, SimpleRegistrationForm
+from .models import Alert, AlertConfiguration, AuditEvent, LogEntry
+from .permissions import admin_required, is_admin_user
 from .services import audit, record_log
 
-def home(request):
-    """Public portal landing page presenting the CivicWatch system, architecture, and AICTE compliance."""
-    base = LogEntry.objects.all()
-    counts = {
-        "total": base.count(),
-        "critical": base.filter(severity="CRITICAL").count(),
-        "security": base.filter(category="SECURITY").count(),
-        "alerts": Alert.objects.exclude(state="RESOLVED").count(),
-        "apps": base.values("source_application").distinct().count(),
-    }
-    recent = base[:6]
-    return render(request, "logs/home.html", {"counts": counts, "recent": recent})
-
-@require_POST
-def simulate_log(request):
-    """Interactive endpoint to simulate realistic log ingestion and immediate classification."""
-    import json
-    from django.http import JsonResponse
-    try:
-        data = json.loads(request.body) if request.body else {}
-    except Exception:
-        data = request.POST.dict()
-
-    scenario = data.get("scenario", "sql_injection")
-    scenarios = {
-        "sql_injection": {
-            "source_application": "tax-portal",
-            "event_type": "security_threat",
-            "message": "Potential SQL injection detected in parameter id=' OR 1=1--",
-            "status_code": 403,
-            "ip_address": "203.0.113.88",
-            "request_url": "/citizen/filings?id=' OR 1=1--",
-            "http_method": "GET"
-        },
-        "brute_force": {
-            "source_application": "student-portal",
-            "event_type": "auth_event",
-            "message": "Login failed for account student_9821 with invalid password",
-            "status_code": 401,
-            "ip_address": "192.168.1.105",
-            "request_url": "/api/v1/auth/login",
-            "http_method": "POST"
-        },
-        "db_timeout": {
-            "source_application": "land-records",
-            "event_type": "database_error",
-            "message": "Database connection pool exhausted: connection refused by primary replica",
-            "status_code": 500,
-            "ip_address": "10.0.4.12",
-            "request_url": "/api/registry/mutation",
-            "http_method": "POST"
-        },
-        "system_crash": {
-            "source_application": "pension-service",
-            "event_type": "system_failure",
-            "message": "Kernel panic: out of memory while allocating worker thread for batch run",
-            "status_code": 503,
-            "ip_address": "10.0.8.22",
-            "request_url": "/jobs/disburse-monthly",
-            "http_method": "POST"
-        },
-        "normal_activity": {
-            "source_application": "citizen-identity",
-            "event_type": "user_action",
-            "message": "New citizen grievance submitted for road repair in ward #4",
-            "status_code": 201,
-            "ip_address": "49.36.12.8",
-            "request_url": "/portal/grievance/new",
-            "http_method": "POST"
-        }
-    }
-    payload = scenarios.get(scenario, scenarios["sql_injection"])
-    entry = record_log(payload, request)
-    alert_created = Alert.objects.filter(log=entry).exists()
-
-    return JsonResponse({
-        "success": True,
-        "id": str(entry.id),
-        "source_application": entry.source_application,
-        "message": entry.message,
-        "category": entry.get_category_display(),
-        "severity": entry.severity,
-        "confidence": f"{round(entry.confidence * 100)}%" if entry.confidence else "Standard",
-        "reason": entry.classification_reason,
-        "alert_triggered": alert_created,
-        "timestamp": entry.timestamp.strftime("%b %d, %H:%M:%S")
-    })
-
 def register(request):
-    """Handle new officer / administrator account registration."""
+    """User registration view with Admin and User roles."""
     if request.user.is_authenticated:
         return redirect("dashboard")
 
     if request.method == "POST":
-        form = OfficerRegistrationForm(request.POST)
+        form = SimpleRegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            role_name = form.cleaned_data.get("role", "Monitoring Officer")
             auth_login(request, user)
-            audit("user_registered", request, {"username": user.username, "role": role_name}, actor=user)
-            messages.success(request, f"Registration successful. Welcome, {user.get_full_name() or user.username}! You are signed in as {role_name}.")
+            role_title = "Administrator" if user.is_staff else "Regular User"
+            audit("user_registered", request, {"username": user.username, "role": role_title}, actor=user)
+            messages.success(request, f"Welcome to CivicWatch, {user.username}! Signed in as {role_title}.")
             return redirect("dashboard")
     else:
-        form = OfficerRegistrationForm()
+        form = SimpleRegistrationForm()
 
     return render(request, "registration/register.html", {"form": form})
 
-@monitor_required
+@login_required
 def dashboard(request):
-    now = timezone.now(); since = now - timedelta(days=7); base = LogEntry.objects.all()
-    counts = {"total": base.count(), "critical": base.filter(severity="CRITICAL").count(), "errors": base.filter(severity="ERROR").count(), "warnings": base.filter(severity="WARNING").count(), "security": base.filter(category="SECURITY").count(), "alerts": Alert.objects.exclude(state="RESOLVED").count()}
-    daily = list(base.filter(timestamp__gte=since).extra(select={"day": "date(timestamp)"}).values("day").annotate(total=Count("id")).order_by("day"))
-    severity_data = list(base.values("severity").annotate(total=Count("id")).order_by("severity"))
-    category_data = list(base.values("category").annotate(total=Count("id")).order_by("category"))
-    applications = list(base.values("source_application").annotate(total=Count("id")).order_by("-total")[:8])
-    errors = list(base.filter(timestamp__gte=since, severity__in=["ERROR", "CRITICAL"]).extra(select={"day": "date(timestamp)"}).values("day").annotate(total=Count("id")).order_by("day"))
-    return render(request, "logs/dashboard.html", {"counts": counts, "recent": base[:12], "severity_data": severity_data, "category_data": category_data, "applications": applications, "daily": daily, "errors": errors, "alerts": Alert.objects.exclude(state="RESOLVED")[:5]})
+    """Main dashboard displaying log statistics, recent activity, and notifications."""
+    now = timezone.now()
+    since = now - timedelta(days=7)
+    base = LogEntry.objects.all()
 
-@monitor_required
+    counts = {
+        "total": base.count(),
+        "info": base.filter(severity="INFO").count(),
+        "warnings": base.filter(severity="WARNING").count(),
+        "errors": base.filter(severity__in=["ERROR", "CRITICAL"]).count(),
+        "critical": base.filter(severity="CRITICAL").count(),
+        "notifications": Alert.objects.exclude(state="RESOLVED").count(),
+    }
+
+    # Daily trend data for the last 7 days
+    daily = list(
+        base.filter(timestamp__gte=since)
+        .extra(select={"day": "date(timestamp)"})
+        .values("day")
+        .annotate(total=Count("id"))
+        .order_by("day")
+    )
+
+    # Severity distribution
+    severity_data = list(
+        base.values("severity")
+        .annotate(total=Count("id"))
+        .order_by("severity")
+    )
+
+    recent_logs = base[:8]
+    recent_alerts = Alert.objects.exclude(state="RESOLVED")[:5]
+
+    return render(request, "logs/dashboard.html", {
+        "counts": counts,
+        "recent_logs": recent_logs,
+        "recent_alerts": recent_alerts,
+        "daily": daily,
+        "severity_data": severity_data,
+        "is_admin": is_admin_user(request.user),
+    })
+
+@login_required
 def log_list(request):
+    """Search and filter server logs with pagination."""
     qs = LogEntry.objects.all()
-    mapping = {"severity":"severity", "category":"category", "app":"source_application__icontains", "user_id":"user_id__icontains", "ip":"ip_address__icontains", "status":"status_code", "event":"event_type__icontains", "from":"timestamp__date__gte", "to":"timestamp__date__lte"}
-    for key, field in mapping.items():
-        value = request.GET.get(key)
-        if value:
-            try: qs = qs.filter(**{field:value})
-            except (ValueError, TypeError): pass
-    if request.GET.get("q"): qs = qs.filter(Q(message__icontains=request.GET["q"]) | Q(request_url__icontains=request.GET["q"]))
-    sort = request.GET.get("sort", "-timestamp")
-    if sort.lstrip("-") in {"timestamp", "severity", "category", "source_application", "status_code"}: qs = qs.order_by(sort)
-    page = Paginator(qs, 30).get_page(request.GET.get("page"))
-    return render(request, "logs/log_list.html", {"page":page, "severities":LogEntry.Severity.choices, "categories":LogEntry.Category.choices})
 
-@monitor_required
-def log_detail(request, log_id): return render(request, "logs/log_detail.html", {"entry":get_object_or_404(LogEntry, pk=log_id), "categories":LogEntry.Category.choices, "severities":LogEntry.Severity.choices})
+    # Search query
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(Q(message__icontains=q) | Q(source_application__icontains=q) | Q(ip_address__icontains=q))
 
-@system_admin_required
+    # Level filter
+    level = request.GET.get("level", "").strip()
+    if level in LogEntry.Severity.values:
+        qs = qs.filter(severity=level)
+
+    # Date filters
+    date_from = request.GET.get("from", "").strip()
+    if date_from:
+        try:
+            qs = qs.filter(timestamp__date__gte=date_from)
+        except Exception:
+            pass
+
+    date_to = request.GET.get("to", "").strip()
+    if date_to:
+        try:
+            qs = qs.filter(timestamp__date__lte=date_to)
+        except Exception:
+            pass
+
+    paginator = Paginator(qs, 20)
+    page_number = request.GET.get("page")
+    page = paginator.get_page(page_number)
+
+    severities = [
+        ("INFO", "Info"),
+        ("WARNING", "Warning"),
+        ("ERROR", "Error"),
+        ("CRITICAL", "Critical"),
+    ]
+
+    return render(request, "logs/log_list.html", {
+        "page": page,
+        "severities": severities,
+        "q": q,
+        "selected_level": level,
+        "date_from": date_from,
+        "date_to": date_to,
+        "is_admin": is_admin_user(request.user),
+    })
+
+@login_required
+def add_log(request):
+    """Form to manually add a new server log entry with automatic classification."""
+    if request.method == "POST":
+        form = LogEntryForm(request.POST)
+        if form.is_valid():
+            app_choice = form.cleaned_data["source_application"]
+            if app_choice == "Other" and form.cleaned_data.get("custom_application"):
+                app_name = form.cleaned_data["custom_application"].strip()
+            else:
+                app_name = app_choice
+
+            chosen_severity = form.cleaned_data["severity"]
+            supplied_severity = None if chosen_severity == "AUTO" else chosen_severity
+
+            entry = record_log({
+                "source_application": app_name,
+                "message": form.cleaned_data["message"],
+                "severity": supplied_severity,
+                "ip_address": form.cleaned_data.get("ip_address") or None,
+                "status_code": form.cleaned_data.get("status_code") or None,
+                "user_id": str(request.user.id),
+                "event_type": "manual_entry"
+            }, request)
+
+            messages.success(
+                request,
+                f"Log recorded successfully! Automatically classified as {entry.severity} ({entry.get_category_display()})."
+            )
+            return redirect("logs")
+    else:
+        form = LogEntryForm()
+
+    return render(request, "logs/add_log.html", {"form": form})
+
+@login_required
+def log_detail(request, log_id):
+    """Inspect full details of a specific log entry."""
+    entry = get_object_or_404(LogEntry, pk=log_id)
+    return render(request, "logs/log_detail.html", {
+        "entry": entry,
+        "is_admin": is_admin_user(request.user),
+    })
+
+@admin_required
 @require_POST
-def log_correct(request, log_id):
-    entry = get_object_or_404(LogEntry, pk=log_id); category = request.POST.get("category"); severity = request.POST.get("severity")
-    if category in LogEntry.Category.values and severity in LogEntry.Severity.values:
-        entry.category, entry.severity, entry.corrected_by, entry.corrected_at = category, severity, request.user, timezone.now(); entry.save(update_fields=["category", "severity", "corrected_by", "corrected_at"])
-        audit("classification_corrected", request, {"log_id":str(entry.id), "category":category, "severity":severity}); messages.success(request, "Classification corrected.")
-    return redirect("log-detail", log_id=log_id)
-
-@monitor_required
-def export_logs(request):
-    qs = LogEntry.objects.all()
-    if request.GET.get("severity"): qs = qs.filter(severity=request.GET["severity"])
-    if request.GET.get("category"): qs = qs.filter(category=request.GET["category"])
-    if request.GET.get("q"): qs = qs.filter(message__icontains=request.GET["q"])
-    response = HttpResponse(content_type="text/csv"); response["Content-Disposition"]='attachment; filename="server-logs.csv"'; writer=csv.writer(response)
-    writer.writerow(["ID","Timestamp","Application","User","IP","Event","Severity","Category","Status","Message"])
-    for e in qs.iterator(): writer.writerow([e.id,e.timestamp.isoformat(),e.source_application,e.user_id,e.ip_address or "",e.event_type,e.severity,e.category,e.status_code or "",e.message])
-    audit("logs_exported", request, {"count":qs.count()}); return response
-
-@monitor_required
-def alert_list(request): return render(request, "logs/alerts.html", {"alerts":Alert.objects.select_related("log","handled_by")})
-
-@system_admin_required
-@require_POST
-def alert_update(request, alert_id):
-    alert=get_object_or_404(Alert, pk=alert_id); state=request.POST.get("state")
-    if state in Alert.State.values:
-        alert.state, alert.handled_by=state,request.user; alert.save(update_fields=["state","handled_by","updated_at"]); audit("alert_"+state.lower(),request,{"alert_id":alert.pk})
-    return redirect("alerts")
-
-@system_admin_required
-def audit_report(request):
-    qs=AuditEvent.objects.select_related("actor")
-    if request.GET.get("from"): qs=qs.filter(created_at__date__gte=request.GET["from"])
-    if request.GET.get("to"): qs=qs.filter(created_at__date__lte=request.GET["to"])
-    if request.GET.get("csv")=="1":
-        response=HttpResponse(content_type="text/csv"); response["Content-Disposition"]='attachment; filename="audit-report.csv"'; w=csv.writer(response); w.writerow(["Time","Actor","Action","Details","IP"])
-        for e in qs.iterator(): w.writerow([e.created_at.isoformat(),e.actor or "system",e.action,e.details,e.ip_address or ""])
-        audit("audit_report_exported",request); return response
-    return render(request,"logs/audit.html",{"events":qs[:500]})
-
-@system_admin_required
-@require_POST
-def manual_log(request):
-    if request.POST.get("message", "").strip():
-        entry=record_log({"source_application":request.POST.get("source_application","manual-entry"),"event_type":request.POST.get("event_type","manual"),"message":request.POST["message"],"user_id":request.user.pk})
-        audit("manual_log_created",request,{"log_id":str(entry.id)})
+def delete_log(request, log_id):
+    """Admin-only deletion of a log entry."""
+    entry = get_object_or_404(LogEntry, pk=log_id)
+    entry.delete()
+    messages.success(request, "Log entry deleted.")
     return redirect("logs")
+
+@login_required
+def notifications_view(request):
+    """View active and resolved system incident notifications."""
+    status_filter = request.GET.get("status", "unresolved")
+
+    if status_filter == "resolved":
+        alerts = Alert.objects.filter(state="RESOLVED")
+    elif status_filter == "all":
+        alerts = Alert.objects.all()
+    else:
+        status_filter = "unresolved"
+        alerts = Alert.objects.exclude(state="RESOLVED")
+
+    return render(request, "logs/notifications.html", {
+        "alerts": alerts,
+        "status_filter": status_filter,
+        "unresolved_count": Alert.objects.exclude(state="RESOLVED").count(),
+        "is_admin": is_admin_user(request.user),
+    })
+
+@login_required
+@require_POST
+def resolve_notification(request, alert_id):
+    """Mark a notification/alert as resolved."""
+    alert = get_object_or_404(Alert, pk=alert_id)
+    alert.state = "RESOLVED"
+    alert.handled_by = request.user
+    alert.save(update_fields=["state", "handled_by", "updated_at"])
+    messages.success(request, "Notification marked as resolved.")
+    return redirect("notifications")
+
+@login_required
+def settings_view(request):
+    """Settings and system information page."""
+    threshold_key = "auth_failure_threshold"
+
+    if request.method == "POST" and is_admin_user(request.user):
+        new_val = request.POST.get("auth_threshold", "").strip()
+        if new_val.isdigit() and int(new_val) >= 2:
+            conf, _ = AlertConfiguration.objects.get_or_create(key=threshold_key)
+            conf.value = new_val
+            conf.save()
+            messages.success(request, f"Failed authentication alert threshold updated to {new_val}.")
+            return redirect("settings")
+
+    try:
+        current_threshold = AlertConfiguration.objects.get(key=threshold_key).value
+    except AlertConfiguration.DoesNotExist:
+        current_threshold = "5"
+
+    sys_info = {
+        "django_version": django.get_version(),
+        "python_version": sys.version.split()[0],
+        "database": "SQLite (db.sqlite3)",
+        "total_users": User.objects.count(),
+        "total_logs": LogEntry.objects.count(),
+        "total_alerts": Alert.objects.count(),
+    }
+
+    return render(request, "logs/settings.html", {
+        "sys_info": sys_info,
+        "current_threshold": current_threshold,
+        "is_admin": is_admin_user(request.user),
+    })
+
+@login_required
+@require_POST
+def seed_logs_view(request):
+    """Quickly generate demo server logs to demonstrate dashboard functionality."""
+    sample_logs = [
+        {"app": "Student Portal", "msg": "Student semester fee payment completed successfully", "sev": "INFO", "status": 200, "ip": "192.168.1.15"},
+        {"app": "Student Portal", "msg": "Login failed for account roll_9021 with invalid password", "sev": "WARNING", "status": 401, "ip": "192.168.1.55"},
+        {"app": "Auth Service", "msg": "Multiple consecutive failed login attempts detected", "sev": "WARNING", "status": 401, "ip": "192.168.1.55"},
+        {"app": "Database Server", "msg": "Database connection pool timeout: connection refused by master node", "sev": "CRITICAL", "status": 500, "ip": "10.0.1.10"},
+        {"app": "Fee Gateway", "msg": "Payment gateway API timeout while verifying transaction checksum", "sev": "ERROR", "status": 504, "ip": "10.0.2.22"},
+        {"app": "Exam System", "msg": "Midterm hall ticket downloaded for candidate #482", "sev": "INFO", "status": 200, "ip": "192.168.2.14"},
+        {"app": "Library System", "msg": "Book return catalog entry updated for accession #9102", "sev": "INFO", "status": 200, "ip": "192.168.3.11"},
+        {"app": "Student Portal", "msg": "Unhandled exception: division by zero in grade calculator", "sev": "ERROR", "status": 500, "ip": "10.0.1.18"},
+        {"app": "Database Server", "msg": "Disk space warning: filesystem usage reached 87%", "sev": "WARNING", "status": 200, "ip": "10.0.1.10"},
+        {"app": "Auth Service", "msg": "Potential brute force authentication attempt on admin user", "sev": "CRITICAL", "status": 403, "ip": "203.0.113.88"},
+    ]
+
+    for item in sample_logs:
+        record_log({
+            "source_application": item["app"],
+            "message": item["msg"],
+            "severity": item["sev"],
+            "status_code": item["status"],
+            "ip_address": item["ip"],
+            "event_type": "demo_seed"
+        })
+
+    messages.success(request, f"Generated {len(sample_logs)} sample demo logs across different levels.")
+    return redirect("dashboard")
+
+@admin_required
+@require_POST
+def clear_logs_view(request):
+    """Admin-only action to reset all logs and notifications."""
+    LogEntry.objects.all().delete()
+    Alert.objects.all().delete()
+    messages.success(request, "All logs and notifications have been cleared.")
+    return redirect("dashboard")
+
+@login_required
+def export_logs(request):
+    """Export current log view to CSV."""
+    qs = LogEntry.objects.all()
+
+    if request.GET.get("level"):
+        qs = qs.filter(severity=request.GET["level"])
+    if request.GET.get("q"):
+        qs = qs.filter(Q(message__icontains=request.GET["q"]) | Q(source_application__icontains=request.GET["q"]))
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="server-logs.csv"'
+    writer = csv.writer(response)
+    writer.writerow(["ID", "Timestamp", "Application", "Level", "Category", "Status Code", "IP Address", "Message"])
+
+    for e in qs.iterator():
+        writer.writerow([
+            str(e.id),
+            e.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            e.source_application,
+            e.severity,
+            e.category,
+            e.status_code or "",
+            e.ip_address or "",
+            e.message
+        ])
+
+    return response

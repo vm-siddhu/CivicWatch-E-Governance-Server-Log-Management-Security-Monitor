@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Settings · CivicWatch{% endblock %}
+{% block heading %}System Settings{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h1 style="font: 700 22px Manrope; margin: 0 0 4px; color: #1c2440;">System & Demo Settings</h1>
+  <p class="text-muted mb-0" style="font-size: 13px;">Manage application thresholds, review user role permissions, and use demo testing utilities.</p>
+</div>
+
+<div class="row g-3">
+  <!-- Left Column: User Profile and Threshold Setting -->
+  <div class="col-lg-6">
+    <!-- User Profile Card -->
+    <div class="panel p-4 mb-3">
+      <h2 style="font: 700 15px Manrope; margin-bottom: 14px;">User Account & Role</h2>
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <span class="avatar" style="width: 48px; height: 48px; font-size: 18px;">{{ user.username|first|upper }}</span>
+        <div>
+          <strong style="font-size: 15px; color: #1e293b;">{{ user.username }}</strong>
+          <span class="text-muted d-block" style="font-size: 12px;">{{ user.email|default:"No email registered" }}</span>
+        </div>
+      </div>
+      <div class="p-3 rounded" style="background: #f8fafc; border: 1px solid #e2e8f0; font-size: 12px;">
+        <span class="text-muted d-block">Current Access Level:</span>
+        {% if is_admin %}
+          <span class="badge bg-primary mt-1">Administrator (Full Access)</span>
+          <small class="text-muted d-block mt-2">You can add, inspect, and delete logs, resolve notifications, and configure system thresholds.</small>
+        {% else %}
+          <span class="badge bg-secondary mt-1">Regular User</span>
+          <small class="text-muted d-block mt-2">You can view the dashboard, search server logs, add new logs, and view notifications.</small>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Alert Threshold Card -->
+    <div class="panel p-4">
+      <h2 style="font: 700 15px Manrope; margin-bottom: 10px;">Automated Alert Thresholds</h2>
+      <p class="text-muted" style="font-size: 12px; margin-bottom: 14px;">
+        CivicWatch automatically raises an incident alert when repeated authentication failures occur from the same IP.
+      </p>
+
+      {% if is_admin %}
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label" style="font-size: 12px; font-weight: 600;">Failed Login Attempt Threshold (within 10 minutes)</label>
+            <div class="input-group" style="max-width: 200px;">
+              <input type="number" name="auth_threshold" min="2" max="50" class="form-control" value="{{ current_threshold }}">
+              <span class="input-group-text" style="font-size: 11px;">attempts</span>
+            </div>
+            <small class="text-muted d-block mt-1" style="font-size: 11px;">Default is 5 failed attempts.</small>
+          </div>
+          <button type="submit" class="btn btn-sm btn-primary" style="font-size: 12px;">Update Threshold</button>
+        </form>
+      {% else %}
+        <div class="text-muted" style="font-size: 12px;">
+          Current threshold: <strong>{{ current_threshold }} failed attempts</strong> within 10 minutes. (Admin privileges required to change).
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right Column: Demo Tools & System Diagnostics -->
+  <div class="col-lg-6">
+    <!-- College Demo Utilities -->
+    <div class="panel p-4 mb-3" style="border-top: 3px solid var(--purple);">
+      <h2 style="font: 700 15px Manrope; margin-bottom: 8px;">College Project Demo Tools</h2>
+      <p class="text-muted" style="font-size: 12px; margin-bottom: 16px;">
+        Use these shortcuts to quickly generate sample data or reset your workspace for a live presentation.
+      </p>
+
+      <div class="d-flex flex-column gap-3">
+        <div class="p-3 rounded border" style="background: #fafbff;">
+          <strong style="font-size: 13px; color: #3730a3;">⚡ Quick Seed Sample Data</strong>
+          <p class="text-muted mb-2" style="font-size: 11px;">
+            Generates 10 realistic demo logs across Student Portal, Fee Gateway, and Database servers with mixed INFO, WARNING, and ERROR levels.
+          </p>
+          <form method="post" action="{% url 'seed-logs' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size: 11px;">
+              Generate Sample Demo Logs
+            </button>
+          </form>
+        </div>
+
+        {% if is_admin %}
+        <div class="p-3 rounded border" style="background: #fff8f8; border-color: #fecaca !important;">
+          <strong style="font-size: 13px; color: #991b1b;">🗑 Clear All Logs & Alerts</strong>
+          <p class="text-muted mb-2" style="font-size: 11px;">
+            Wipes all server log records and notifications to start with a fresh clean database.
+          </p>
+          <form method="post" action="{% url 'clear-logs' %}" onsubmit="return confirm('Reset and delete all logs and notifications?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size: 11px;">
+              Clear All Logs (Reset DB)
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Diagnostic Info -->
+    <div class="panel p-4">
+      <h2 style="font: 700 15px Manrope; margin-bottom: 12px;">System Environment</h2>
+      <table class="table table-sm table-borderless mb-0" style="font-size: 12px;">
+        <tbody>
+          <tr>
+            <td class="text-muted" style="width: 45%;">Framework:</td>
+            <td><strong>Django {{ sys_info.django_version }}</strong></td>
+          </tr>
+          <tr>
+            <td class="text-muted">Python Version:</td>
+            <td><code>{{ sys_info.python_version }}</code></td>
+          </tr>
+          <tr>
+            <td class="text-muted">Storage Engine:</td>
+            <td><code>{{ sys_info.database }}</code></td>
+          </tr>
+          <tr>
+            <td class="text-muted">Registered Users:</td>
+            <td>{{ sys_info.total_users }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted">Total Logs Ingested:</td>
+            <td>{{ sys_info.total_logs }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted">Total Notifications:</td>
+            <td>{{ sys_info.total_alerts }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

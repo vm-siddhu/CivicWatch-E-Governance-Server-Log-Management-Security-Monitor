@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Notifications · CivicWatch{% endblock %}
+{% block heading %}System Notifications{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 style="font: 700 22px Manrope; margin: 0 0 4px; color: #1c2440;">Incident Notifications</h1>
+    <p class="text-muted mb-0" style="font-size: 13px;">Important alerts generated automatically for critical failures, security anomalies, and repeated auth failures.</p>
+  </div>
+  <div class="btn-group" role="group">
+    <a href="?status=unresolved" class="btn btn-sm {% if status_filter == 'unresolved' %}btn-primary{% else %}btn-outline-secondary{% endif %}" style="font-size: 11px;">
+      Unresolved ({{ unresolved_count }})
+    </a>
+    <a href="?status=resolved" class="btn btn-sm {% if status_filter == 'resolved' %}btn-primary{% else %}btn-outline-secondary{% endif %}" style="font-size: 11px;">
+      Resolved
+    </a>
+    <a href="?status=all" class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}" style="font-size: 11px;">
+      All
+    </a>
+  </div>
+</div>
+
+<div class="panel table-panel">
+  <div class="table-responsive">
+    <table class="table data-table mb-0">
+      <thead>
+        <tr>
+          <th>TIME</th>
+          <th>SEVERITY</th>
+          <th>INCIDENT DESCRIPTION</th>
+          <th>RELATED LOG</th>
+          <th>STATUS</th>
+          <th>ACTION</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alert in alerts %}
+        <tr {% if alert.state != 'RESOLVED' %}style="background: #fffcf9;"{% endif %}>
+          <td class="nowrap" style="font-size: 11px;">{{ alert.created_at|date:"Y-m-d H:i" }}</td>
+          <td>
+            {% if alert.severity == 'CRITICAL' %}
+              <span class="badge bg-danger text-white">CRITICAL</span>
+            {% elif alert.severity == 'ERROR' %}
+              <span class="badge bg-danger-subtle text-danger border border-danger">ERROR</span>
+            {% else %}
+              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">WARNING</span>
+            {% endif %}
+          </td>
+          <td>
+            <strong style="color: #1e293b; font-size: 12px;">{{ alert.description }}</strong>
+            {% if alert.recommended_action %}
+              <small class="text-muted d-block mt-1">{{ alert.recommended_action }}</small>
+            {% endif %}
+          </td>
+          <td>
+            {% if alert.log %}
+              <a href="{% url 'log-detail' alert.log.id %}" class="event-link" style="font-size: 11px;">
+                {{ alert.log.source_application }} (#{{ alert.log.id|stringformat:".8s" }})
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if alert.state == 'RESOLVED' %}
+              <span class="badge bg-success-subtle text-success border border-success">Resolved</span>
+            {% else %}
+              <span class="badge bg-danger-subtle text-danger border border-danger">Active</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if alert.state != 'RESOLVED' %}
+              <form method="post" action="{% url 'resolve-notification' alert.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-success py-0 px-2" style="font-size: 10px;">
+                  Mark as Resolved
+                </button>
+              </form>
+            {% else %}
+              <small class="text-muted">Handled by {{ alert.handled_by.username|default:"Admin" }}</small>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="empty">No incident notifications in this view. All systems are operational.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

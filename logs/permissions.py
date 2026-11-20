@@ -1,5 +1,5 @@
 from rest_framework.permissions import BasePermission
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test
 import secrets
 
 class IngestPermission(BasePermission):
@@ -9,8 +9,15 @@ class IngestPermission(BasePermission):
         supplied = request.headers.get("X-Log-Token", "")
         return bool(expected and secrets.compare_digest(supplied, expected))
 
-def system_admin_required(view):
-    return user_passes_test(lambda u: u.is_authenticated and (u.is_superuser or u.groups.filter(name__in=["Super Administrator", "System Administrator"]).exists()))(view)
+def is_admin_user(user):
+    return user.is_authenticated and (
+        user.is_staff or user.is_superuser or
+        user.groups.filter(name__in=["Admin", "Administrator", "System Administrator", "Super Administrator"]).exists()
+    )
 
-def monitor_required(view):
-    return user_passes_test(lambda u: u.is_authenticated and (u.is_superuser or u.groups.filter(name__in=["Super Administrator", "System Administrator", "Monitoring Officer"]).exists()))(view)
+def admin_required(view):
+    return user_passes_test(is_admin_user)(view)
+
+# Keep aliases for compatibility
+system_admin_required = admin_required
+monitor_required = login_required
