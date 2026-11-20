@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+{% block title %}CivicWatch · E-Governance Server Log Management{% endblock %}
+{% block heading %}System Concept & Architecture{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="panel" style="background: linear-gradient(135deg, #202846 0%, #171d34 100%); color: #fff; padding: 42px 38px; border-radius: 16px; margin-bottom: 28px; border: 0; box-shadow: 0 10px 40px rgba(28, 36, 64, 0.12);">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div style="max-width: 820px;">
+      <span style="font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #a49bff; text-transform: uppercase; display: inline-block; margin-bottom: 10px;">
+        🏛 E-GOVERNANCE INFRASTRUCTURE · AICTE COMPLIANT
+      </span>
+      <h1 style="font: 800 32px/1.25 Manrope, sans-serif; color: #ffffff; margin: 0 0 14px; letter-spacing: -0.8px;">
+        Server Log Management System for E-Governance Platforms
+      </h1>
+      <p style="font-size: 15px; line-height: 1.6; color: #b7bed4; margin: 0 0 24px;">
+        A comprehensive Django-based log management and security monitoring platform ensuring <strong>real-time event logging</strong>, <strong>automated content-based classification</strong>, and <strong>instant notifications for critical incidents</strong>. Built with secure credential redaction, visual operational dashboards, and role-based access control to enhance system reliability, facilitate proactive issue resolution, and ensure compliance with AICTE guidelines.
+      </p>
+
+      <div class="d-flex gap-2 flex-wrap">
+        {% if user.is_authenticated %}
+          <a href="{% url 'dashboard' %}" class="btn-primary" style="padding: 11px 20px; font-size: 13px; text-decoration: none; border-radius: 8px;">
+            Open Live Operations Dashboard <span>→</span>
+          </a>
+          <a href="{% url 'logs' %}" class="btn-outline" style="background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.2); padding: 11px 18px; font-size: 13px;">
+            Explore Log Records
+          </a>
+        {% else %}
+          <a href="{% url 'login' %}" class="btn-primary" style="padding: 11px 20px; font-size: 13px; text-decoration: none; border-radius: 8px;">
+            Sign in to Workspace <span>→</span>
+          </a>
+          <a href="{% url 'register' %}" class="btn-outline" style="background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.2); padding: 11px 18px; font-size: 13px;">
+            Register as Officer
+          </a>
+        {% endif %}
+        <a href="#simulator" class="btn-outline" style="background: transparent; color: #c4ccdf; border-color: rgba(255,255,255,0.25); padding: 11px 18px; font-size: 13px;">
+          Try Interactive Simulator ↓
+        </a>
+      </div>
+    </div>
+
+    <!-- Quick Stats Card -->
+    <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px 24px; min-width: 240px;">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: #8f99b7; text-transform: uppercase;">MONITORING TELEMETRY</span>
+      <div class="mt-3">
+        <div style="font-size: 26px; font-weight: 800; color: #fff; line-height: 1;">{{ counts.total }}</div>
+        <small style="color: #9da6c2; font-size: 11px;">Total Logs Recorded</small>
+      </div>
+      <div class="mt-3 pt-2" style="border-top: 1px solid rgba(255,255,255,0.08);">
+        <div class="d-flex justify-content-between text-white" style="font-size: 12px; margin-bottom: 6px;">
+          <span style="color: #b0b8d1;">Security Alerts:</span>
+          <strong style="color: #ff9b9b;">{{ counts.alerts }}</strong>
+        </div>
+        <div class="d-flex justify-content-between text-white" style="font-size: 12px; margin-bottom: 6px;">
+          <span style="color: #b0b8d1;">Critical Events:</span>
+          <strong style="color: #ffb885;">{{ counts.critical }}</strong>
+        </div>
+        <div class="d-flex justify-content-between text-white" style="font-size: 12px;">
+          <span style="color: #b0b8d1;">Active Apps:</span>
+          <strong style="color: #6ee7b7;">{{ counts.apps }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Core Architectural Pillars -->
+<div class="mb-4">
+  <div class="page-intro mb-3">
+    <div>
+      <span class="eyebrow">SYSTEM ARCHITECTURE</span>
+      <h2 style="font: 700 20px Manrope, sans-serif; margin: 4px 0;">Six Core Capabilities</h2>
+      <p class="muted">Engineered to support state and national public-facing digital services.</p>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="panel h-100" style="padding: 24px;">
+        <div style="width: 36px; height: 36px; border-radius: 9px; background: #eeecff; color: #6558d3; display: grid; place-items: center; font-size: 18px; margin-bottom: 14px;">⚡</div>
+        <h3 style="font: 700 15px Manrope; margin-bottom: 8px;">Real-Time Event Logging</h3>
+        <p style="font-size: 12px; line-height: 1.6; color: #6d758d; margin: 0;">
+          Authenticated HTTP REST API (<code>POST /api/logs/ingest/</code>) collecting server, runtime, and HTTP telemetry across student portals, tax gateways, and land registry applications.
+        </p>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="panel h-100" style="padding: 24px;">
+        <div style="width: 36px; height: 36px; border-radius: 9px; background: #eaf8f2; color: #1d9a75; display: grid; place-items: center; font-size: 18px; margin-bottom: 14px;">🏷️</div>
+        <h3 style="font: 700 15px Manrope; margin-bottom: 8px;">Automated Content Classification</h3>
+        <p style="font-size: 12px; line-height: 1.6; color: #6d758d; margin: 0;">
+          Local, privacy-preserving pattern classifier that categorizes events into 9 functional categories (Security, Auth, Database, System Failure) and 5 severities without external cloud leakage.
+        </p>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="panel h-100" style="padding: 24px;">
+        <div style="width: 36px; height: 36px; border-radius: 9px; background: #fff0f0; color: #e56868; display: grid; place-items: center; font-size: 18px; margin-bottom: 14px;">🚨</div>
+        <h3 style="font: 700 15px Manrope; margin-bottom: 8px;">Instant Critical Notifications</h3>
+        <p style="font-size: 12px; line-height: 1.6; color: #6d758d; margin: 0;">
+          Automated anomaly detection triggers immediate in-app incident records and SMTP alerts upon critical failure patterns or authentication bursts (5+ failed logins within 10 minutes).
+        </p>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="panel h-100" style="padding: 24px;">
+        <div style="width: 36px; height: 36px; border-radius: 9px; background: #fff8e7; color: #d3a432; display: grid; place-items: center; font-size: 18px; margin-bottom: 14px;">🔒</div>
+        <h3 style="font: 700 15px Manrope; margin-bottom: 8px;">Secure Storage & Redaction</h3>
+        <p style="font-size: 12px; line-height: 1.6; color: #6d758d; margin: 0;">
+          Built-in sanitizer strips passwords, session tokens, authorization keys, and Bearer credentials from messages and URLs prior to database persistence, safeguarding citizen privacy.
+        </p>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="panel h-100" style="padding: 24px;">
+        <div style="width: 36px; height: 36px; border-radius: 9px; background: #efefff; color: #685fd4; display: grid; place-items: center; font-size: 18px; margin-bottom: 14px;">🔍</div>
+        <h3 style="font: 700 15px Manrope; margin-bottom: 8px;">Advanced Search & Filtering</h3>
+        <p style="font-size: 12px; line-height: 1.6; color: #6d758d; margin: 0;">
+          Multi-parameter search allows security officers to filter millions of logs by application name, client IP, HTTP status code, severity, date range, and message contents with CSV export.
+        </p>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="panel h-100" style="padding: 24px;">
+        <div style="width: 36px; height: 36px; border-radius: 9px; background: #f8efff; color: #a05ec2; display: grid; place-items: center; font-size: 18px; margin-bottom: 14px;">👥</div>
+        <h3 style="font: 700 15px Manrope; margin-bottom: 8px;">Role-Based Access Control (RBAC)</h3>
+        <p style="font-size: 12px; line-height: 1.6; color: #6d758d; margin: 0;">
+          Departmental tiers enforce strict permission boundaries between <em>Monitoring Officers</em> (read-only audit/inspection), <em>System Administrators</em> (corrections & resolutions), and <em>Super Admins</em>.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Interactive Simulator Section -->
+<div id="simulator" class="panel" style="padding: 30px; margin-bottom: 28px; border-top: 3px solid var(--purple);">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div>
+      <span class="eyebrow">INTERACTIVE LAB</span>
+      <h2 style="font: 700 18px Manrope; margin: 4px 0 2px;">Test Real-Time Log Ingestion & Automated Classification</h2>
+      <p class="muted">Select a simulated e-governance incident scenario below and watch the local classification engine process and record it in real time.</p>
+    </div>
+    <span class="badge" style="background: #eeecff; color: #6558d3; padding: 6px 12px; font-weight: 600; font-size: 11px; border-radius: 6px;">Live API Simulator</span>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <label class="form-label" style="font-size: 11px; font-weight: 700; color: #495057;">Select E-Governance Scenario</label>
+      <div class="d-flex flex-column gap-2 mb-3">
+        <label class="p-2 border rounded" style="cursor: pointer; background: #fff; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+          <input type="radio" name="scenario_choice" value="sql_injection" checked>
+          <div>
+            <strong>Tax Portal · SQL Injection Exploit Attempt</strong>
+            <small class="d-block text-muted">HTTP 403 · Parameter injection detected: <code>id=' OR 1=1--</code></small>
+          </div>
+        </label>
+        
+        <label class="p-2 border rounded" style="cursor: pointer; background: #fff; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+          <input type="radio" name="scenario_choice" value="brute_force">
+          <div>
+            <strong>Student Portal · Authentication Failure Burst</strong>
+            <small class="d-block text-muted">HTTP 401 · Repeated invalid password for <code>student_9821</code></small>
+          </div>
+        </label>
+
+        <label class="p-2 border rounded" style="cursor: pointer; background: #fff; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+          <input type="radio" name="scenario_choice" value="db_timeout">
+          <div>
+            <strong>Land Records · Primary Database Deadlock</strong>
+            <small class="d-block text-muted">HTTP 500 · Connection pool exhausted on registry mutation</small>
+          </div>
+        </label>
+
+        <label class="p-2 border rounded" style="cursor: pointer; background: #fff; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+          <input type="radio" name="scenario_choice" value="system_crash">
+          <div>
+            <strong>Pension Disbursement · Out of Memory Crash</strong>
+            <small class="d-block text-muted">HTTP 503 · Kernel panic: out of memory on batch processor</small>
+          </div>
+        </label>
+
+        <label class="p-2 border rounded" style="cursor: pointer; background: #fff; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+          <input type="radio" name="scenario_choice" value="normal_activity">
+          <div>
+            <strong>Citizen Services · Grievance Application Created</strong>
+            <small class="d-block text-muted">HTTP 201 · Standard civic user action in ward portal</small>
+          </div>
+        </label>
+      </div>
+
+      <button id="btnSimulate" class="btn-primary w-100" style="padding: 12px; font-size: 13px;">
+        Ingest & Classify Event <span>⚡</span>
+      </button>
+    </div>
+
+    <div class="col-lg-7">
+      <label class="form-label" style="font-size: 11px; font-weight: 700; color: #495057;">Real-Time Pipeline Inspection Result</label>
+      <div id="simResultBox" style="background: #f8f9fd; border: 1px solid #e3e6ef; border-radius: 10px; padding: 20px; min-height: 290px;">
+        <div id="simPlaceholder" class="text-center py-5 text-muted" style="font-size: 12px;">
+          <div style="font-size: 28px; margin-bottom: 8px;">📡</div>
+          Click <strong>"Ingest & Classify Event"</strong> to simulate an external application transmission and review how CivicWatch sanitizes, classifies, and records it.
+        </div>
+
+        <div id="simContent" style="display: none;">
+          <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
+            <div>
+              <span style="font-size: 10px; color: #8890a5; font-weight: 700;">TRANSMISSION STATUS</span>
+              <div style="font-weight: 700; font-size: 13px; color: #1c2440;">HTTP 201 Created · Ingestion Successful</div>
+            </div>
+            <span id="resSeverityPill" class="severity critical">CRITICAL</span>
+          </div>
+
+          <div class="row g-2 mb-3" style="font-size: 11px;">
+            <div class="col-6">
+              <span class="text-muted d-block">Originating Application:</span>
+              <strong id="resApp" style="font-size: 12px;">tax-portal</strong>
+            </div>
+            <div class="col-6">
+              <span class="text-muted d-block">Assigned Category:</span>
+              <strong id="resCategory" style="font-size: 12px;">Security Threats</strong>
+            </div>
+            <div class="col-6">
+              <span class="text-muted d-block">Classification Confidence:</span>
+              <strong id="resConfidence" style="font-size: 12px; color: var(--purple);">92%</strong>
+            </div>
+            <div class="col-6">
+              <span class="text-muted d-block">Alert Generated:</span>
+              <strong id="resAlert" style="font-size: 12px; color: #d95757;">Yes (Active Incident)</strong>
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <span class="text-muted d-block" style="font-size: 10px;">Classification Reason:</span>
+            <div id="resReason" style="font-size: 11px; background: #fff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e5e8f0; font-family: monospace;">
+              Security threat keyword match
+            </div>
+          </div>
+
+          <div>
+            <span class="text-muted d-block" style="font-size: 10px;">Sanitized Message Stored in Database:</span>
+            <div id="resMessage" style="font-size: 11px; background: #fff; padding: 8px 10px; border-radius: 6px; border: 1px solid #e5e8f0; font-family: monospace; white-space: pre-wrap;">
+              Message content...
+            </div>
+          </div>
+
+          <div class="mt-3 pt-2 text-end">
+            <a href="{% url 'logs' %}" class="text-link" style="font-size: 11px;">View in Log Explorer →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AICTE Guidelines & Governance Section -->
+<div class="panel" style="padding: 28px; margin-bottom: 24px; background: #fdfdfe; border-left: 4px solid #1d9a75;">
+  <div class="row align-items-center">
+    <div class="col-lg-8">
+      <span class="eyebrow" style="color: #1d9a75;">INSTITUTIONAL COMPLIANCE</span>
+      <h2 style="font: 700 18px Manrope; margin: 4px 0 8px;">Compliance with AICTE Guidelines & E-Governance Best Practices</h2>
+      <p style="font-size: 12px; line-height: 1.6; color: #5a6279; margin: 0;">
+        The system fulfills AICTE technical mandates by ensuring continuous operational availability, strict accountability, and data protection:
+      </p>
+      <ul style="font-size: 12px; color: #5a6279; margin: 10px 0 0; padding-left: 18px; line-height: 1.7;">
+        <li><strong>Enhanced System Reliability:</strong> Continuous heartbeat tracking and anomaly detection isolate performance degradation before service disruption occurs.</li>
+        <li><strong>Proactive Issue Resolution:</strong> Real-time alerts allow technicians to remediate database deadlocks and network timeouts immediately.</li>
+        <li><strong>Institutional Accountability:</strong> Immutable audit trails log all user interactions, administrative overrides, and data exports.</li>
+        <li><strong>Data Protection & Local Processing:</strong> Complete local classification ensures zero third-party telemetry leakage, protecting student and citizen privacy.</li>
+      </ul>
+    </div>
+    <div class="col-lg-4 text-center mt-3 mt-lg-0">
+      <div style="background: #f7faf8; border: 1px solid #e2ede7; border-radius: 12px; padding: 18px;">
+        <span style="font-size: 32px;">🛡️</span>
+        <h4 style="font: 700 14px Manrope; margin: 8px 0 4px; color: #232c49;">AICTE Guideline Aligned</h4>
+        <small style="color: #7d859b; font-size: 11px;">Technical Education & Governance Digital Standards</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent System Logs Preview -->
+<div class="panel table-panel">
+  <div class="panel-head d-flex justify-content-between align-items-center">
+    <div>
+      <h2 style="font: 700 14px Manrope; margin: 0 0 4px;">Recent Telemetry Stream</h2>
+      <p style="font-size: 11px; color: #959bad; margin: 0;">Latest recorded events across your infrastructure</p>
+    </div>
+    <a href="{% url 'logs' %}" class="text-link">Full Explorer →</a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table data-table">
+      <thead>
+        <tr>
+          <th>TIMESTAMP</th>
+          <th>APPLICATION</th>
+          <th>EVENT / MESSAGE</th>
+          <th>CATEGORY</th>
+          <th>SEVERITY</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in recent %}
+        <tr>
+          <td class="nowrap" style="font-size: 11px;">{{ e.timestamp|date:"M j, H:i:s" }}</td>
+          <td><span style="font-weight: 600; color: #374151;">{{ e.source_application }}</span></td>
+          <td><a class="event-link" href="{% url 'log-detail' e.id %}">{{ e.message|truncatechars:85 }}</a></td>
+          <td>{{ e.get_category_display }}</td>
+          <td><span class="severity {{ e.severity|lower }}">{{ e.severity }}</span></td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="empty">No log events recorded yet. Use the simulator above to generate demo telemetry.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const btn = document.getElementById("btnSimulate");
+  if (!btn) return;
+
+  btn.addEventListener("click", function() {
+    const selected = document.querySelector('input[name="scenario_choice"]:checked');
+    const scenario = selected ? selected.value : "sql_injection";
+
+    btn.disabled = true;
+    btn.innerHTML = "Processing Transmission... ⏳";
+
+    fetch("{% url 'simulate-log' %}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": "{{ csrf_token }}"
+      },
+      body: JSON.stringify({ scenario: scenario })
+    })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.innerHTML = "Ingest & Classify Event <span>⚡</span>";
+
+      document.getElementById("simPlaceholder").style.display = "none";
+      document.getElementById("simContent").style.display = "block";
+
+      document.getElementById("resApp").textContent = data.source_application;
+      document.getElementById("resCategory").textContent = data.category;
+      document.getElementById("resConfidence").textContent = data.confidence;
+      document.getElementById("resReason").textContent = data.reason;
+      document.getElementById("resMessage").textContent = data.message;
+
+      const pill = document.getElementById("resSeverityPill");
+      pill.textContent = data.severity;
+      pill.className = "severity " + data.severity.toLowerCase();
+
+      const alertEl = document.getElementById("resAlert");
+      if (data.alert_triggered) {
+        alertEl.textContent = "Yes · Incident Alert Generated";
+        alertEl.style.color = "#d95757";
+      } else {
+        alertEl.textContent = "No (Within normal operational parameters)";
+        alertEl.style.color = "#258764";
+      }
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.innerHTML = "Ingest & Classify Event <span>⚡</span>";
+      alert("Error ingesting simulated log: " + err);
+    });
+  });
+});
+</script>
+{% endblock %}

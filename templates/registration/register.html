@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Register Account{% endblock %}
+{% block heading %}Officer Onboarding{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card" style="width: min(520px, 100%);">
+    <span class="eyebrow">E-GOVERNANCE ONBOARDING</span>
+    <h1>Create officer account</h1>
+    <p class="muted">Register to gain authenticated access to the CivicWatch server monitoring workspace.</p>
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger mt-3">
+        {% for error in form.non_field_errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" class="mt-4">
+      {% csrf_token %}
+      
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">{{ form.first_name.label }}</label>
+          {{ form.first_name }}
+          {% if form.first_name.errors %}<div class="text-danger small mt-1">{{ form.first_name.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-6">
+          <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">{{ form.last_name.label }}</label>
+          {{ form.last_name }}
+          {% if form.last_name.errors %}<div class="text-danger small mt-1">{{ form.last_name.errors.0 }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">{{ form.username.label }}</label>
+        {{ form.username }}
+        {% if form.username.errors %}<div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">{{ form.email.label }}</label>
+        {{ form.email }}
+        {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">{{ form.role.label }}</label>
+        {{ form.role }}
+        <small class="text-muted d-block mt-1" style="font-size: 10px;">Select the operational authority level required for your department duties.</small>
+        {% if form.role.errors %}<div class="text-danger small mt-1">{{ form.role.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">{{ form.password.label }}</label>
+        {{ form.password }}
+        {% if form.password.help_text %}<small class="text-muted d-block mt-1" style="font-size: 10px;">{{ form.password.help_text }}</small>{% endif %}
+        {% if form.password.errors %}<div class="text-danger small mt-1">{{ form.password.errors.0 }}</div>{% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" style="font-size: 11px; font-weight: 600; color: #495057;">{{ form.confirm_password.label }}</label>
+        {{ form.confirm_password }}
+        {% if form.confirm_password.errors %}<div class="text-danger small mt-1">{{ form.confirm_password.errors.0 }}</div>{% endif %}
+      </div>
+
+      <button type="submit" class="btn-primary w-100 mt-3" style="padding: 12px; font-size: 13px;">
+        Register and enter workspace <span>→</span>
+      </button>
+
+      <div class="text-center mt-3" style="font-size: 12px;">
+        <span class="text-muted">Already have an officer account?</span>
+        <a href="{% url 'login' %}" style="color: var(--purple); font-weight: 600; text-decoration: none; margin-left: 5px;">Sign in here</a>
+      </div>
+    </form>
+
+    <div class="security-note">
+      🔒 &nbsp; <strong>RBAC Policy:</strong> New accounts are mapped into departmental security groups and audited according to institutional governance policies.
+    </div>
+  </div>
+</div>
+{% endblock %}
