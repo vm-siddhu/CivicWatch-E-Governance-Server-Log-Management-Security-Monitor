@@ -1,13 +1,18 @@
+from django.conf import settings
 from django.contrib import admin
-from django.urls import include, path
-from django.contrib.auth import views as auth_views
-from logs import views as log_views
+from django.urls import include, path, re_path
+from django.views.static import serve
+from pathlib import Path
+
+DIST_DIR = settings.BASE_DIR / "frontend" / "dist"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
-    path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
-    path("accounts/register/", log_views.register, name="register"),
-    path("", include("logs.urls")),
     path("api/", include("logs.api_urls")),
+
+    # Serve built React static assets
+    re_path(r"^assets/(?P<path>.*)$", serve, {"document_root": str(DIST_DIR / "assets")}),
+
+    # Catch-all route to serve React Single Page Application
+    re_path(r"^.*$", serve, {"document_root": str(DIST_DIR), "path": "index.html"}, name="react-app"),
 ]

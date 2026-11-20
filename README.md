@@ -1,21 +1,22 @@
-# CivicWatch · Server Log Management System
+# CivicWatch · Server Log Management System (React + Django)
 
-A clean, functional Django web application for server log management, automated content classification, and incident alerting. Developed as a college project to demonstrate practical server monitoring, log ingestion, search and filtering, and role-based access control.
+A modern, functional server log management system built with a **React** frontend and a **Django REST Framework** backend. Developed as a college assignment project to demonstrate real-time event logging, automated content-based classification, instant notifications for critical incidents, search and filtering, visual dashboards, and role-based access control.
 
 ---
 
-## Key Features
+## Architecture Overview
 
-1. **Simple Dashboard Overview**: Displays basic statistics (Total Logs, Info, Warnings, and Errors) alongside 7-day activity and log level distribution charts.
-2. **Add & Store New Logs**: Easy web form to submit application events with optional parameters (IP address, status code).
-3. **Automated Content Classification**: Analyzes message keywords (`error`, `failed`, `timeout`, `warning`, `login`, etc.) and automatically classifies logs into `INFO`, `WARNING`, `ERROR`, or `CRITICAL`.
-4. **Critical Error Highlighting**: Visual red badges and row highlights for immediate issue visibility.
-5. **Incident Notifications**: Important events (such as repeated failed logins or server crashes) automatically generate notifications that can be reviewed and marked as resolved.
-6. **Search & Multi-Filtering**: Search logs by keyword or application, filter by log level (`INFO`, `WARNING`, `ERROR`, `CRITICAL`), or filter by date range.
-7. **Role-Based Access Control**:
-   - **Regular User**: View dashboard, search logs, add new logs, and view notifications.
-   - **Administrator**: Full access to delete logs, resolve notifications, configure alert thresholds, and export CSV reports.
-8. **Demo & Testing Tools**: Built-in button in Settings to seed realistic sample logs with mixed levels for live demonstrations.
+- **Frontend**: **React 18 Single Page Application (SPA)** built with Vite.
+  - Minimal, modern dashboard UI.
+  - Sidebar navigation: **Dashboard**, **All Logs**, **Notifications**, and **Settings**.
+  - Interactive SVG charts (7-day activity trend line and log level distribution).
+  - Status badges for log severity (`INFO`, `WARNING`, `ERROR`, `CRITICAL`).
+  - Search, level filter, date filter, CSV export, and log inspection modals.
+- **Backend**: **Django 6 & Django REST Framework**.
+  - Full RESTful API for auth, dashboard telemetry, logs, notifications, and settings.
+  - Automated content-based classifier (`logs/classifier.py`) analyzing keywords in log messages.
+  - Lightweight CORS middleware for local Vite development.
+  - Django serves the production-built React SPA directly at `http://127.0.0.1:8000/`.
 
 ---
 
@@ -23,32 +24,27 @@ A clean, functional Django web application for server log management, automated 
 
 ```
 DjangoProject/
-├── config/              # Django project settings and root URLs
-│   ├── settings.py
-│   ├── urls.py
+├── frontend/             # React SPA (Vite + React 18)
+│   ├── src/
+│   │   ├── App.jsx       # Main React application (Dashboard, Logs, Notifications, Settings)
+│   │   ├── main.jsx      # React DOM entry point
+│   │   └── index.css     # Clean, modern dashboard styles
+│   ├── dist/             # Production build served directly by Django
+│   ├── index.html        # HTML template
+│   ├── vite.config.js    # Vite configuration & /api proxy to Django
+│   └── package.json
+├── config/               # Django project settings
+│   ├── settings.py       # Middleware, database, templates, CORS configuration
+│   ├── urls.py           # Root routes (serves API and React SPA)
 │   └── asgi.py
-├── logs/                # Main application
-│   ├── models.py        # LogEntry, Alert (Notifications), and Configuration models
-│   ├── views.py         # Dashboard, All Logs, Add Log, Notifications, and Settings
-│   ├── forms.py         # Registration and Log Entry forms
-│   ├── classifier.py    # Local keyword and status code classification engine
-│   ├── services.py      # Sanitization, threat detection, and storage
-│   ├── permissions.py   # Admin and user access decorators
-│   └── urls.py          # App routes
-├── templates/
-│   ├── base.html        # Clean minimal layout with responsive sidebar
-│   ├── logs/
-│   │   ├── dashboard.html      # Overview, stat cards, charts, and recent activity
-│   │   ├── log_list.html       # All logs table with search, filter, and pagination
-│   │   ├── add_log.html        # Simple form to record new server events
-│   │   ├── log_detail.html     # Detailed log inspection card
-│   │   ├── notifications.html  # Incident notifications and resolution
-│   │   └── settings.html       # System diagnostic info and demo utilities
-│   └── registration/
-│       ├── login.html          # Clean sign in form
-│       └── register.html       # Account registration with Admin / User role selection
-├── static/              # CSS stylesheets and Chart.js integration
-│   └── app.css
+├── logs/                 # Main Django backend app
+│   ├── api.py            # REST API endpoints (Auth, Dashboard, Logs, Notifications, Settings)
+│   ├── api_urls.py       # REST API routing (/api/...)
+│   ├── models.py         # LogEntry, Alert, and Configuration models
+│   ├── classifier.py     # Local keyword and status code classification engine
+│   ├── services.py       # Sanitization, threshold alerts, and persistence
+│   ├── middleware.py     # Error capture & CORS middleware
+│   └── roles.py          # RBAC group initializer
 └── manage.py
 ```
 
@@ -58,84 +54,94 @@ DjangoProject/
 
 ### 1. Prerequisites
 - Python 3.11 or newer
+- Node.js (v18+) and npm *(only needed if you want to rebuild the React frontend)*
 
-### 2. Setup Virtual Environment & Dependencies
+---
+
+### Option A: Standard One-Command Run (Recommended)
+The React frontend is already pre-built inside `frontend/dist/`. Django serves it directly on `http://127.0.0.1:8000/` without needing a separate Node process!
+
 ```powershell
-# Open terminal in project folder
+# 1. Activate virtual environment
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 
-# Install requirements
+# 2. Install Python requirements
 pip install -r requirements.txt
-```
 
-### 3. Initialize Database & Roles
-```powershell
-# Run database migrations
+# 3. Apply database migrations & set up roles
 python manage.py migrate
-
-# Initialize standard role groups
 python manage.py setup_roles
 
-# (Optional) Create superuser admin
-python manage.py createsuperuser
+# 4. Start the Django server
+python manage.py runserver
 ```
 
-### 4. Start the Development Server
+Now open **`http://127.0.0.1:8000/`** in your browser. You will see the React application!
+
+---
+
+### Option B: Frontend Development Mode (with Vite HMR)
+If you want to edit React code with instant Hot Module Reloading:
+
+**Terminal 1 (Django Backend):**
 ```powershell
 python manage.py runserver
 ```
 
-Open **`http://127.0.0.1:8000/`** in your browser.
+**Terminal 2 (React Vite Dev Server):**
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open **`http://localhost:5173/`** in your browser. Vite automatically proxies all `/api` requests to Django at `http://127.0.0.1:8000`.
+
+To re-build the frontend for production:
+```powershell
+npm run build --prefix frontend
+```
 
 ---
 
-## How to Use & Demonstrate
+## How to Demonstrate the Project
 
 1. **Sign In or Register**:
-   - Open `http://127.0.0.1:8000/accounts/register/`.
-   - Register a user with the **Administrator** or **Regular User** role.
-   - You will be automatically signed in and redirected to the **Dashboard**.
+   - Click **"Sign In"** or **"Register"** in the topbar.
+   - Choose between **Regular User** (view dashboard and search logs) or **Administrator** (manage logs, delete entries, resolve notifications, and clear database).
+   - Once submitted, you are signed in and the top bar displays your user profile and role badge.
 
 2. **Dashboard**:
-   - Inspect the four stat cards (**Total Logs**, **Information**, **Warnings**, **Errors**).
-   - View the doughnut chart showing log level breakdown and the 7-day activity line chart.
-   - Review recent logs and unresolved notifications.
+   - Inspect the 4 Stat Cards: **Total Logs**, **Info Logs**, **Warnings**, and **Errors & Critical**.
+   - Review the **7-Day Log Activity Trend** line chart and the **Log Level Distribution** bar chart.
+   - View the latest classified logs and unresolved alerts.
 
-3. **Add a New Log**:
-   - Click **"＋ Add Log"** in the topbar or sidebar.
+3. **Add a New Log (Content-Based Classification)**:
+   - Click **"＋ Add Log"** in the topbar.
    - Select an application (e.g. *Student Portal* or *Database Server*).
-   - Enter a message (e.g. `Database connection pool timeout: connection refused`).
-   - Leave Log Level on **Auto-classify** (or pick a level manually).
-   - Click **Record and Classify Log**. The system classifies the event as `CRITICAL` or `ERROR` and redirects you to the log explorer.
+   - Enter a message such as:
+     - `Database connection timeout: pool exhausted` $\rightarrow$ classified as **CRITICAL** / **ERROR**.
+     - `Login failed for account roll_9021 with invalid password` $\rightarrow$ classified as **WARNING**.
+     - `Semester fee payment completed successfully` $\rightarrow$ classified as **INFO**.
+   - Leave Log Level on **"⚡ Auto-classify based on content"**.
+   - Click **Record & Classify Log**. Notice the success toast showing the assigned level!
 
-4. **Search and Filter**:
-   - Go to **All Logs** in the sidebar.
-   - Type a keyword in the search bar or select a log level (`ERROR`, `WARNING`, `INFO`).
-   - Use the date pickers to filter logs by date.
-   - Click **Export CSV** to download a spreadsheet report of the filtered logs.
+4. **All Logs Explorer**:
+   - Click **"All Logs"** in the sidebar.
+   - Search by keyword (e.g. `timeout`, `Student`, `192.168`).
+   - Filter by log level (`ALL`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).
+   - Filter by date range.
+   - Click **"Inspect"** on any row to open the modal showing full metadata, sanitized message, and classification reason.
+   - Click **"↓ Export CSV"** to download the filtered table.
+   - As an Administrator, click **"Delete"** to remove any entry.
 
-5. **Notifications**:
-   - Open **Notifications** in the sidebar.
-   - Review active system alerts generated by critical events.
-   - Click **Mark as Resolved** to clear an alert.
+5. **Incident Notifications**:
+   - Click **"Notifications"** in the sidebar (note the badge counter for unresolved alerts).
+   - Review active incidents generated by critical errors or brute-force attempts.
+   - Click **"✓ Mark as Resolved"** to update an alert's status.
 
-6. **Settings & Demo Utilities**:
-   - Go to **Settings** in the sidebar.
-   - Click **"Generate Sample Demo Logs"** to quickly populate the database with 10 realistic logs for your presentation.
-   - Administrators can also change the failed login attempt threshold or click **"Clear All Logs"** to reset the demo.
-
----
-
-## Log Ingestion REST API (Optional)
-
-Connected external applications can also push logs programmatically via HTTP:
-
-- **Endpoint**: `POST /api/logs/ingest/`
-- **Header**: `X-Log-Token: dev-ingest-token`
-- **Content-Type**: `application/json`
-
-Example in PowerShell:
-```powershell
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/logs/ingest/" -Headers @{"X-Log-Token"="dev-ingest-token"} -ContentType "application/json" -Body '{"source_application":"Student Portal","message":"Student fees payment completed successfully","status_code":200}'
-```
+6. **Settings & Demo Tools**:
+   - Click **"Settings"** in the sidebar.
+   - Click **"Generate 10 Sample Logs"** to instantly populate the database with realistic demo records across all levels.
+   - As an Administrator, update the failed login attempt threshold or click **"Clear All Logs & Alerts"** to reset the demo.
